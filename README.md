@@ -30,3 +30,77 @@ ChainFeaturesService.Current.UpsertChainFeature(
           SupportEIP1559 = false
       });
 ```
+
+### Full example in Nethereum
+This test demontrates how to set your custom chain properties, to flag if 1559 is supported or not. If not ChainFeature is configured, it will default to 1559, if the GasPrice is not set, or LegacyMode enabled.
+
+```csharp
+[Fact]
+        public async void ShouldSendTrasactionBasedOnChainFeature()
+        {
+
+            var web3 = _ethereumClientIntegrationFixture.GetWeb3();
+            ChainFeaturesService.Current.UpsertChainFeature(
+                new ChainFeature()
+                {
+                    ChainName = "Nethereum Test Chain",
+                    ChainId = 444444444500,
+                    SupportEIP1559 = false
+                });
+
+            var toAddress = "0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe";
+            var tranHash = await web3.Eth.TransactionManager.SendTransactionAsync(new TransactionInput()
+            {
+                From = EthereumClientIntegrationFixture.AccountAddress,
+                To = toAddress,
+                Value = new HexBigInteger(100),
+            }
+            );
+
+            var tran = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(tranHash);
+            Assert.NotNull(tran.TransactionHash);
+            Assert.Null(tran.MaxFeePerGas);
+            Assert.Null(tran.MaxPriorityFeePerGas);
+            Assert.NotNull(tran.GasPrice);
+
+            ChainFeaturesService.Current.UpsertChainFeature(
+                new ChainFeature()
+                {
+                    ChainName = "Nethereum Test Chain",
+                    ChainId = 444444444500,
+                    SupportEIP1559 = true
+                });
+
+            var tranHash2 = await web3.Eth.TransactionManager.SendTransactionAsync(new TransactionInput()
+            {
+                From = EthereumClientIntegrationFixture.AccountAddress,
+                To = toAddress,
+                Value = new HexBigInteger(100),
+            }
+            );
+
+            var tran2 = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(tranHash2);
+            Assert.NotNull(tran2.TransactionHash);
+            Assert.NotNull(tran2.MaxFeePerGas);
+            Assert.NotNull(tran2.MaxPriorityFeePerGas);
+            Assert.NotNull(tran2.GasPrice);
+
+            ChainFeaturesService.Current.TryRemoveChainFeature(444444444500);
+            //Should default to 1559 when not feature is set
+
+            var tranHash3 = await web3.Eth.TransactionManager.SendTransactionAsync(new TransactionInput()
+            {
+                From = EthereumClientIntegrationFixture.AccountAddress,
+                To = toAddress,
+                Value = new HexBigInteger(100),
+            }
+           );
+
+            var tran3 = await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(tranHash3);
+            Assert.NotNull(tran3.TransactionHash);
+            Assert.NotNull(tran3.MaxFeePerGas);
+            Assert.NotNull(tran3.MaxPriorityFeePerGas);
+            Assert.NotNull(tran3.GasPrice);
+        }
+
+```
